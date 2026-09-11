@@ -54,7 +54,10 @@ defmodule AshExpo.Resource.Verifiers.ValidateProjection do
 
   defp validate_projection(resource, %{name: name, realtime?: true, transport: transport})
        when transport != :channel do
-    error(resource, "AshExpo realtime action #{inspect(resource)}.#{name} must use transport: :channel")
+    error(
+      resource,
+      "AshExpo realtime action #{inspect(resource)}.#{name} must use transport: :channel"
+    )
   end
 
   defp validate_projection(resource, %{name: name, transport: :channel} = projection) do
