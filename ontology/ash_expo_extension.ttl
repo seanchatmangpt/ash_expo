@@ -1,0 +1,114 @@
+@prefix aex: <http://seanchatmangpt.github.io/packs/ash-extension-core#> .
+@prefix expo: <https://github.com/seanchatmangpt/ash_expo/ontology#> .
+
+# Canonical AshExpo Spark extension specification.
+# Generated Elixir is a projection of these admitted facts via
+# ggen-marketplace/ash-extension-core-pack; do not edit generated support source directly.
+
+expo:AshExpoSpec a aex:AshExtensionSpec ;
+    aex:packageName "ash_expo" ;
+    aex:moduleName "AshExpo.Resource" ;
+    aex:extensionTarget "resource" ;
+    aex:supportSubdir "generated" ;
+    aex:codegenTask "ash_expo.codegen" ;
+    aex:codegenName "ash_expo" .
+
+expo:ExpoSection a aex:DslSection ;
+    aex:sectionOf expo:AshExpoSpec ;
+    aex:sectionName "expo" ;
+    aex:sectionOrder 1 ;
+    aex:sectionDescribe "Expo projection settings for this Ash resource" .
+
+expo:EnabledField a aex:SectionSchemaField ;
+    aex:sectionFieldOf expo:ExpoSection ;
+    aex:sectionFieldOrder 1 ;
+    aex:sectionFieldName "enabled?" ;
+    aex:sectionFieldType "boolean" ;
+    aex:sectionFieldDefault "true" ;
+    aex:sectionFieldDoc "Whether this resource participates in AshExpo code generation" .
+
+expo:ActionEntity a aex:DslEntity ;
+    aex:entityOf expo:ExpoSection ;
+    aex:entityOrder 1 ;
+    aex:entityName "action" ;
+    aex:entityStruct "Action" ;
+    aex:entityDescribe "Projects one existing public Ash action to Expo" .
+
+expo:ActionNameArg a aex:EntityArg ;
+    aex:argOf expo:ActionEntity ;
+    aex:argOrder 1 ;
+    aex:argName "name" .
+
+expo:ActionNameField a aex:EntitySchemaField ;
+    aex:fieldOf expo:ActionEntity ;
+    aex:fieldOrder 1 ;
+    aex:fieldName "name" ;
+    aex:fieldType "atom" ;
+    aex:fieldRequired true ;
+    aex:fieldDoc "Existing public Ash action name" .
+
+expo:TransportField a aex:EntitySchemaField ;
+    aex:fieldOf expo:ActionEntity ;
+    aex:fieldOrder 2 ;
+    aex:fieldName "transport" ;
+    aex:fieldType "one_of" ;
+    aex:fieldRequired false ;
+    aex:fieldDefault ":http" ;
+    aex:fieldDoc "Transport used by the generated mobile contract" .
+
+expo:TransportHttp a aex:FieldOneOfValue ;
+    aex:oneOfValueOf expo:TransportField ;
+    aex:oneOfValueOrder 1 ;
+    aex:oneOfValueName "http" .
+
+expo:TransportChannel a aex:FieldOneOfValue ;
+    aex:oneOfValueOf expo:TransportField ;
+    aex:oneOfValueOrder 2 ;
+    aex:oneOfValueName "channel" .
+
+expo:OfflineField a aex:EntitySchemaField ;
+    aex:fieldOf expo:ActionEntity ;
+    aex:fieldOrder 3 ;
+    aex:fieldName "offline" ;
+    aex:fieldType "one_of" ;
+    aex:fieldRequired false ;
+    aex:fieldDefault ":online_only" ;
+    aex:fieldDoc "Offline admission class. No class implies automatic local execution." .
+
+expo:OfflineOnlineOnly a aex:FieldOneOfValue ;
+    aex:oneOfValueOf expo:OfflineField ;
+    aex:oneOfValueOrder 1 ;
+    aex:oneOfValueName "online_only" .
+
+expo:OfflineCacheable a aex:FieldOneOfValue ;
+    aex:oneOfValueOf expo:OfflineField ;
+    aex:oneOfValueOrder 2 ;
+    aex:oneOfValueName "cacheable" .
+
+expo:OfflineIdempotent a aex:FieldOneOfValue ;
+    aex:oneOfValueOf expo:OfflineField ;
+    aex:oneOfValueOrder 3 ;
+    aex:oneOfValueName "idempotent" .
+
+expo:OfflineReplayable a aex:FieldOneOfValue ;
+    aex:oneOfValueOf expo:OfflineField ;
+    aex:oneOfValueOrder 4 ;
+    aex:oneOfValueName "replayable" .
+
+expo:RealtimeField a aex:EntitySchemaField ;
+    aex:fieldOf expo:ActionEntity ;
+    aex:fieldOrder 4 ;
+    aex:fieldName "realtime?" ;
+    aex:fieldType "boolean" ;
+    aex:fieldRequired false ;
+    aex:fieldDefault "false" ;
+    aex:fieldDoc "Marks the action as a realtime capability" .
+
+expo:SecureField a aex:EntitySchemaField ;
+    aex:fieldOf expo:ActionEntity ;
+    aex:fieldOrder 5 ;
+    aex:fieldName "secure?" ;
+    aex:fieldType "boolean" ;
+    aex:fieldRequired false ;
+    aex:fieldDefault "true" ;
+    aex:fieldDoc "Whether the client should attach its configured bearer credential" .
