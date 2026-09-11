@@ -27,3 +27,18 @@ jobs:
       - run: mix deps.get
       - run: mix format --check-formatted
       - run: mix test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+      - name: Generate empty-manifest TypeScript falsifier
+        run: mix ash_expo.codegen --output tmp/generated
+      - name: Type-check generated Expo runtime
+        run: >-
+          npx --yes -p typescript@5.9.3 tsc
+          --noEmit
+          --strict
+          --target ES2022
+          --module ESNext
+          --moduleResolution bundler
+          --lib ES2022,DOM
+          tmp/generated/*.ts
