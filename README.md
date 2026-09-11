@@ -29,7 +29,8 @@ application, then configure AshExpo to emit its companion files there as well:
 ```elixir
 config :ash_typescript,
   output_file: "apps/mobile/generated/ash/ash_rpc.ts",
-  generate_zod_schemas: true
+  generate_zod_schemas: true,
+  generate_phx_channel_rpc_actions: true
 
 config :ash_expo,
   output: "apps/mobile/generated/ash"
@@ -94,7 +95,7 @@ ash_expo_runtime.ts
 Both `mix ash.codegen --check` and `mix ash_expo.codegen --check` detect stale
 generated artifacts. `--dry-run` is also preserved.
 
-## Expo runtime
+## Expo HTTP runtime
 
 `ash_typescript` RPC calls accept `customFetch`. AshExpo supplies one, resolves
 relative Ash RPC endpoints against an explicit native API base URL, and keeps a
@@ -129,12 +130,83 @@ const result = await createTodo(
 `action(resource, action, config)` path performs static projection admission but
 does not claim an online network check.
 
-Actions declared with `secure?: false` use the public transport and do not
-receive the configured bearer credential. Secure actions use the authenticated
-transport. Unknown resource/action pairs are refused before RPC construction.
+Actions declared with `secure?: false` use the public HTTP transport and do not
+receive the configured bearer credential. Unknown resource/action pairs are
+refused before RPC construction.
+
+## Phoenix Channel RPC
+
+AshExpo does not invent a websocket protocol. A projection with
+`transport: :channel` uses the Phoenix Channel RPC functions already generated
+by `ash_typescript`.
+
+```elixir
+expo do
+  action :read,
+    transport: :channel,
+    realtime?: true,
+    offline: :online_only
+end
+```
+
+Channel projections require:
+
+```elixir
+config :ash_typescript,
+  generate_phx_channel_rpc_actions: true
+```
+
+In Expo, create the ordinary Phoenix socket/channel and pass the actual
+`Channel` object into AshExpo. The generic is inferred, so the object retains
+the concrete Phoenix `Channel` type expected by the generated `*Channel`
+function.
+
+```ts
+import { Socket } from "phoenix";
+import { fetch as expoFetch } from "expo/fetch";
+import * as SecureStore from "expo-secure-store";
+
+import { listTodosChannel } from "./generated/ash/ash_rpc";
+import {
+  createAshExpoClient,
+  createAshExpoSocketParams,
+  createAshExpoSocketUrl,
+  createSecureStoreTokenStore,
+} from "./generated/ash/ash_expo";
+
+const tokenStore = createSecureStoreTokenStore(SecureStore);
+const baseUrl = process.env.EXPO_PUBLIC_API_URL!;
+const socket = new Socket(createAshExpoSocketUrl(baseUrl), {
+  params: await createAshExpoSocketParams(tokenStore),
+});
+
+socket.connect();
+const channel = socket.channel("ash_typescript_rpc:mobile", {});
+channel.join();
+
+const ash = createAshExpoClient({
+  fetch: expoFetch,
+  baseUrl,
+  tokenStore,
+  channel,
+});
+
+listTodosChannel(
+  await ash.prepareChannel("Todo", "read", {
+    fields: ["id", "title"],
+    resultHandler: (result) => console.log(result),
+  }),
+);
+```
+
+HTTP construction refuses channel-only projections, and channel construction
+refuses HTTP-only projections. `realtime?: true` is admitted only with channel
+transport. Channel actions are not admitted into the offline queue.
 
 The runtime does not invent refresh-token semantics, background mutation
-replay, or local writes. Those require explicit server-side contracts.
+replay, local writes, or server-push subscriptions beyond the Phoenix Channel
+capability supplied by `ash_typescript`. Those require explicit server-side
+contracts.
 
 ## Offline classes
 
@@ -153,7 +225,7 @@ does **not** provide an offline mutation queue yet.
 ```text
 Ash Resource / Action / Policy
           |
-          +--> ash_typescript --> ash_rpc.ts / ash_types.ts / ash_zod.ts
+          +--> ash_typescript --> HTTP RPC + Phoenix Channel RPC
           |
           +--> ash_expo -------> mobile manifest / Expo runtime
                                       |

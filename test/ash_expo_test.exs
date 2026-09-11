@@ -30,10 +30,60 @@ defmodule AshExpoTest.Todo do
   end
 end
 
+defmodule AshExpoTest.ChannelTodo do
+  use Ash.Resource,
+    domain: nil,
+    extensions: [AshTypescript.Resource, AshExpo.Resource]
+
+  typescript do
+    type_name "ChannelTodo"
+  end
+
+  attributes do
+    uuid_primary_key :id
+  end
+
+  actions do
+    read :read do
+      primary? true
+      public? true
+    end
+  end
+
+  expo do
+    action :read, transport: :channel, realtime?: true
+  end
+end
+
+defmodule AshExpoTest.InvalidRealtimeTodo do
+  use Ash.Resource,
+    domain: nil,
+    extensions: [AshTypescript.Resource, AshExpo.Resource]
+
+  typescript do
+    type_name "InvalidRealtimeTodo"
+  end
+
+  attributes do
+    uuid_primary_key :id
+  end
+
+  actions do
+    read :read do
+      primary? true
+      public? true
+    end
+  end
+
+  expo do
+    action :read, realtime?: true
+  end
+end
+
 defmodule AshExpoTest do
   use ExUnit.Case, async: true
 
-  alias AshExpoTest.Todo
+  alias AshExpoTest.{ChannelTodo, InvalidRealtimeTodo, Todo}
 
   test "builds a deterministic admitted mobile manifest" do
     manifest = AshExpo.Manifest.build([Todo])
@@ -62,13 +112,38 @@ defmodule AshExpoTest do
            ]
   end
 
+  test "channel projection is explicit in the manifest" do
+    manifest = AshExpo.Manifest.build([ChannelTodo])
+    [resource] = manifest["resources"]
+    [action] = resource["actions"]
+
+    assert action["transport"] == "channel"
+    assert action["realtime"] == true
+  end
+
+  test "realtime projection refuses HTTP transport" do
+    assert_raise ArgumentError, ~r/realtime action .* must use transport: :channel/, fn ->
+      AshExpo.Manifest.build([InvalidRealtimeTodo])
+    end
+  end
+
   test "generated runtime binds construction to the admitted resource/action" do
     runtime = AshExpo.Codegen.render_runtime()
 
     assert runtime =~ "function action<T extends AshExpoActionConfig>("
-    assert runtime =~ "const projection = requireProjection(resource, actionName)"
+    assert runtime =~ "requireTransport(resource, actionName, \"http\")"
     assert runtime =~ "projection.secure ? authenticatedFetch : publicFetch"
     assert runtime =~ "async function prepare<T extends AshExpoActionConfig>("
+  end
+
+  test "generated runtime supports Phoenix Channel RPC without inventing a protocol" do
+    runtime = AshExpo.Codegen.render_runtime()
+
+    assert runtime =~ "function channelAction<T extends Record<string, unknown>>("
+    assert runtime =~ "requireTransport(resource, actionName, \"channel\")"
+    assert runtime =~ "createAshExpoSocketUrl"
+    assert runtime =~ "createAshExpoSocketParams"
+    assert runtime =~ "prepareChannel"
   end
 
   test "generated runtime resolves native relative endpoints and supports SecureStore" do
@@ -81,8 +156,8 @@ defmodule AshExpoTest do
   end
 
   test "generation is byte deterministic" do
-    assert AshExpo.Codegen.generate([Todo], "generated") ==
-             AshExpo.Codegen.generate([Todo], "generated")
+    assert AshExpo.Codegen.generate([Todo, ChannelTodo], "generated") ==
+             AshExpo.Codegen.generate([ChannelTodo, Todo], "generated")
   end
 
   test "Ash extension participates in native ash.codegen" do
