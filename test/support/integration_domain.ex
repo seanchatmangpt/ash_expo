@@ -53,5 +53,3 @@ defmodule AshExpo.Integration.Domain do
     resource AshExpo.Integration.Todo
   end
 end
-
-Application.put_env(:ash_expo, :ash_domains, [AshExpo.Integration.Domain])
