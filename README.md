@@ -63,10 +63,20 @@ defmodule MyApp.Todo do
 end
 ```
 
-AshExpo refuses to generate a projection for a missing or private Ash action.
-`:cacheable` is admitted only for read actions.
+AshExpo requires `AshTypescript.Resource` and refuses to generate a projection
+for a missing or private Ash action. `:cacheable` is admitted only for read
+actions.
 
 ## Generate
+
+AshExpo participates in Ash's native extension codegen protocol, so the normal
+front door is:
+
+```bash
+mix ash.codegen
+```
+
+For a focused run:
 
 ```bash
 mix ash_typescript.codegen --output apps/mobile/generated/ash
@@ -81,12 +91,14 @@ ash_expo_manifest.ts
 ash_expo_runtime.ts
 ```
 
-Use `mix ash_expo.codegen --check` in CI to detect stale generated artifacts.
+Both `mix ash.codegen --check` and `mix ash_expo.codegen --check` detect stale
+generated artifacts. `--dry-run` is also preserved.
 
 ## Expo runtime
 
-`ash_typescript` RPC calls accept `customFetch`. AshExpo supplies one and keeps
-a bearer token behind an explicit storage interface.
+`ash_typescript` RPC calls accept `customFetch`. AshExpo supplies one, resolves
+relative Ash RPC endpoints against an explicit native API base URL, and keeps a
+bearer token behind an explicit storage interface.
 
 ```ts
 import { fetch as expoFetch } from "expo/fetch";
@@ -100,18 +112,26 @@ import {
 
 const ash = createAshExpoClient({
   fetch: expoFetch,
+  baseUrl: process.env.EXPO_PUBLIC_API_URL,
   tokenStore: createSecureStoreTokenStore(SecureStore),
 });
 
-await ash.assertAdmitted("Todo", "create");
-
 const result = await createTodo(
-  ash.action({
+  await ash.prepare("Todo", "create", {
     fields: ["id", "title"],
     input: { title: "Ship ash_expo" },
   }),
 );
 ```
+
+`prepare` performs the runtime admission check and then constructs the
+`ash_typescript` config with the appropriate `customFetch`. The lower-level
+`action(resource, action, config)` path performs static projection admission but
+does not claim an online network check.
+
+Actions declared with `secure?: false` use the public transport and do not
+receive the configured bearer credential. Secure actions use the authenticated
+transport. Unknown resource/action pairs are refused before RPC construction.
 
 The runtime does not invent refresh-token semantics, background mutation
 replay, or local writes. Those require explicit server-side contracts.

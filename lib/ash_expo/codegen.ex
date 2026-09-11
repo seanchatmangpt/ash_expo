@@ -99,6 +99,7 @@ defmodule AshExpo.Codegen do
 
     export interface AshExpoClientOptions {
       fetch: AshExpoFetch;
+      baseUrl?: string;
       tokenStore?: AshExpoTokenStore;
       getNetworkOnline?: () => boolean | Promise<boolean>;
       authorizationHeader?: string;
@@ -116,6 +117,8 @@ defmodule AshExpo.Codegen do
       | "cacheable"
       | "idempotent"
       | "replayable";
+
+    export type AshExpoAdmissionMode = "execute" | "queue";
 
     export class AshExpoAdmissionError extends Error {
       constructor(message: string) {
@@ -136,7 +139,34 @@ defmodule AshExpo.Codegen do
       const authHeader = options.authorizationHeader ?? "authorization";
       const authScheme = options.authorizationScheme ?? "Bearer";
 
-      const mobileFetch: AshExpoFetch = async (input, init = {}) => {
+      function requireProjection(resource: string, actionName: string) {
+        const projection = findAshExpoAction(resource, actionName);
+
+        if (!projection) {
+          throw new AshExpoAdmissionError(
+            `No AshExpo projection exists for ${resource}.${actionName}`,
+          );
+        }
+
+        return projection;
+      }
+
+      function resolveInput(input: RequestInfo | URL): RequestInfo | URL {
+        if (!options.baseUrl || typeof input !== "string") {
+          return input;
+        }
+
+        try {
+          return new URL(input);
+        } catch {
+          return new URL(input, options.baseUrl);
+        }
+      }
+
+      const publicFetch: AshExpoFetch = async (input, init = {}) =>
+        options.fetch(resolveInput(input), init);
+
+      const authenticatedFetch: AshExpoFetch = async (input, init = {}) => {
         const headers = new Headers(init.headers ?? {});
         const token = await options.tokenStore?.getToken();
 
@@ -144,25 +174,19 @@ defmodule AshExpo.Codegen do
           headers.set(authHeader, `${authScheme} ${token}`);
         }
 
-        return options.fetch(input, { ...init, headers });
+        return options.fetch(resolveInput(input), { ...init, headers });
       };
 
       async function assertAdmitted(
         resource: string,
-        action: string,
-        mode: "execute" | "queue" = "execute",
+        actionName: string,
+        mode: AshExpoAdmissionMode = "execute",
       ) {
-        const projection = findAshExpoAction(resource, action);
-
-        if (!projection) {
-          throw new AshExpoAdmissionError(
-            `No AshExpo projection exists for ${resource}.${action}`,
-          );
-        }
+        const projection = requireProjection(resource, actionName);
 
         if (mode === "queue" && projection.offline === "online_only") {
           throw new AshExpoAdmissionError(
-            `${resource}.${action} is online_only and cannot be queued`,
+            `${resource}.${actionName} is online_only and cannot be queued`,
           );
         }
 
@@ -170,7 +194,7 @@ defmodule AshExpo.Codegen do
           const online = await options.getNetworkOnline();
           if (!online && projection.offline === "online_only") {
             throw new AshExpoAdmissionError(
-              `${resource}.${action} requires an online server admission`,
+              `${resource}.${actionName} requires an online server admission`,
             );
           }
         }
@@ -178,20 +202,36 @@ defmodule AshExpo.Codegen do
         return projection;
       }
 
-      function action<T extends AshExpoActionConfig>(config: T): T & {
-        customFetch: AshExpoFetch;
-      } {
+      function action<T extends AshExpoActionConfig>(
+        resource: string,
+        actionName: string,
+        config: T,
+      ): T & { customFetch: AshExpoFetch } {
+        const projection = requireProjection(resource, actionName);
+
         return {
           ...config,
-          customFetch: mobileFetch,
+          customFetch: projection.secure ? authenticatedFetch : publicFetch,
         };
+      }
+
+      async function prepare<T extends AshExpoActionConfig>(
+        resource: string,
+        actionName: string,
+        config: T,
+        mode: AshExpoAdmissionMode = "execute",
+      ): Promise<T & { customFetch: AshExpoFetch }> {
+        await assertAdmitted(resource, actionName, mode);
+        return action(resource, actionName, config);
       }
 
       return {
         action,
         assertAdmitted,
-        fetch: mobileFetch,
+        fetch: authenticatedFetch,
         manifest: ashExpoManifest,
+        prepare,
+        publicFetch,
         tokenStore: options.tokenStore,
       } as const;
     }

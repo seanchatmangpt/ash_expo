@@ -1,5 +1,6 @@
 defmodule AshExpoTest.Todo do
   use Ash.Resource,
+    domain: nil,
     extensions: [AshTypescript.Resource, AshExpo.Resource]
 
   typescript do
@@ -8,7 +9,7 @@ defmodule AshExpoTest.Todo do
 
   attributes do
     uuid_primary_key :id
-    attribute :title, :string, public?: true
+    attribute :priority, :integer, public?: true
   end
 
   actions do
@@ -18,7 +19,7 @@ defmodule AshExpoTest.Todo do
     end
 
     create :create do
-      accept [:title]
+      accept [:priority]
       public? true
     end
   end
@@ -61,10 +62,20 @@ defmodule AshExpoTest do
            ]
   end
 
-  test "generated runtime composes through ash_typescript customFetch" do
+  test "generated runtime binds construction to the admitted resource/action" do
     runtime = AshExpo.Codegen.render_runtime()
 
-    assert runtime =~ "customFetch: mobileFetch"
+    assert runtime =~ "function action<T extends AshExpoActionConfig>("
+    assert runtime =~ "const projection = requireProjection(resource, actionName)"
+    assert runtime =~ "projection.secure ? authenticatedFetch : publicFetch"
+    assert runtime =~ "async function prepare<T extends AshExpoActionConfig>("
+  end
+
+  test "generated runtime resolves native relative endpoints and supports SecureStore" do
+    runtime = AshExpo.Codegen.render_runtime()
+
+    assert runtime =~ "baseUrl?: string"
+    assert runtime =~ "new URL(input, options.baseUrl)"
     assert runtime =~ "createSecureStoreTokenStore"
     assert runtime =~ "online_only and cannot be queued"
   end
@@ -72,5 +83,10 @@ defmodule AshExpoTest do
   test "generation is byte deterministic" do
     assert AshExpo.Codegen.generate([Todo], "generated") ==
              AshExpo.Codegen.generate([Todo], "generated")
+  end
+
+  test "Ash extension participates in native ash.codegen" do
+    assert AshExpo.Resource.name() == "ash_expo"
+    assert function_exported?(AshExpo.Resource, :codegen, 1)
   end
 end

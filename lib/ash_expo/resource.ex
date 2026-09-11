@@ -78,4 +78,13 @@ defmodule AshExpo.Resource do
   }
 
   use Spark.Dsl.Extension, sections: [@expo]
+
+  @doc false
+  def name, do: "ash_expo"
+
+  @doc false
+  def codegen(argv) do
+    Mix.Task.reenable("ash_expo.codegen")
+    Mix.Task.run("ash_expo.codegen", argv)
+  end
 end

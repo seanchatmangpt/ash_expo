@@ -23,8 +23,14 @@ defmodule AshExpo.Info do
     AshExpo.Resource in Ash.Resource.Info.extensions(resource)
   end
 
-  @doc "Validates that Expo only projects existing public Ash actions."
+  @doc "Validates the AshTypescript dependency and public Ash action boundary."
   def validate_resource!(resource) do
+    unless AshTypescript.Resource in Ash.Resource.Info.extensions(resource) do
+      raise ArgumentError,
+            "#{inspect(resource)} uses AshExpo.Resource but not AshTypescript.Resource; " <>
+              "AshExpo projects the ash_typescript contract rather than creating a second API model"
+    end
+
     actions(resource)
     |> duplicate_names!()
     |> Enum.each(fn projection ->
