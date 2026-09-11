@@ -19,7 +19,8 @@ defmodule AshExpo.Resource do
       end
 
   The DSL does not expose actions by itself. Each named action must already
-  exist on the resource and be `public? true`.
+  exist on the resource and be `public? true`. The projection is verified at
+  the Spark DSL boundary and checked again before code generation.
   """
 
   defmodule Action do
@@ -77,7 +78,9 @@ defmodule AshExpo.Resource do
     entities: [@action]
   }
 
-  use Spark.Dsl.Extension, sections: [@expo]
+  use Spark.Dsl.Extension,
+    sections: [@expo],
+    verifiers: [AshExpo.Resource.Verifiers.ValidateProjection]
 
   @doc false
   def name, do: "ash_expo"

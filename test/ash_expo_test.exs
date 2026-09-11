@@ -55,35 +55,10 @@ defmodule AshExpoTest.ChannelTodo do
   end
 end
 
-defmodule AshExpoTest.InvalidRealtimeTodo do
-  use Ash.Resource,
-    domain: nil,
-    extensions: [AshTypescript.Resource, AshExpo.Resource]
-
-  typescript do
-    type_name "InvalidRealtimeTodo"
-  end
-
-  attributes do
-    uuid_primary_key :id
-  end
-
-  actions do
-    read :read do
-      primary? true
-      public? true
-    end
-  end
-
-  expo do
-    action :read, realtime?: true
-  end
-end
-
 defmodule AshExpoTest do
   use ExUnit.Case, async: true
 
-  alias AshExpoTest.{ChannelTodo, InvalidRealtimeTodo, Todo}
+  alias AshExpoTest.{ChannelTodo, Todo}
 
   test "builds a deterministic admitted mobile manifest" do
     manifest = AshExpo.Manifest.build([Todo])
@@ -121,9 +96,38 @@ defmodule AshExpoTest do
     assert action["realtime"] == true
   end
 
-  test "realtime projection refuses HTTP transport" do
-    assert_raise ArgumentError, ~r/realtime action .* must use transport: :channel/, fn ->
-      AshExpo.Manifest.build([InvalidRealtimeTodo])
+  test "invalid realtime projection is refused by the Spark compile boundary" do
+    suffix = System.unique_integer([:positive])
+
+    source = """
+    defmodule AshExpoTest.InvalidRealtimeTodo#{suffix} do
+      use Ash.Resource,
+        domain: nil,
+        extensions: [AshTypescript.Resource, AshExpo.Resource]
+
+      typescript do
+        type_name "InvalidRealtimeTodo#{suffix}"
+      end
+
+      attributes do
+        uuid_primary_key :id
+      end
+
+      actions do
+        read :read do
+          primary? true
+          public? true
+        end
+      end
+
+      expo do
+        action :read, realtime?: true
+      end
+    end
+    """
+
+    assert_raise Spark.Error.DslError, ~r/must use transport: :channel/, fn ->
+      Code.compile_string(source)
     end
   end
 
