@@ -34,6 +34,8 @@ defmodule AshExpo.Info do
     actions(resource)
     |> duplicate_names!()
     |> Enum.each(fn projection ->
+      validate_transport!(resource, projection)
+
       case Ash.Resource.Info.action(resource, projection.name) do
         nil ->
           raise ArgumentError,
@@ -65,6 +67,22 @@ defmodule AshExpo.Info do
 
     projections
   end
+
+  defp validate_transport!(resource, %{name: name, realtime?: true, transport: transport})
+       when transport != :channel do
+    raise ArgumentError,
+          "AshExpo realtime action #{inspect(resource)}.#{name} must use transport: :channel"
+  end
+
+  defp validate_transport!(resource, %{name: name, transport: :channel}) do
+    unless Application.get_env(:ash_typescript, :generate_phx_channel_rpc_actions, false) do
+      raise ArgumentError,
+            "AshExpo channel action #{inspect(resource)}.#{name} requires " <>
+              "config :ash_typescript, generate_phx_channel_rpc_actions: true"
+    end
+  end
+
+  defp validate_transport!(_resource, _projection), do: :ok
 
   defp validate_offline_class!(resource, %{type: type}, %{name: name, offline: :cacheable})
        when type != :read do
