@@ -26,12 +26,15 @@ jobs:
           restore-keys: ${{ runner.os }}-mix-
       - run: mix deps.get
       - run: mix format --check-formatted
+      - run: mix compile --warnings-as-errors
       - run: mix test
       - uses: actions/setup-node@v4
         with:
           node-version: "22.13.1"
       - name: Generate empty-manifest TypeScript falsifier
         run: mix ash_expo.codegen --output tmp/generated
+      - name: Verify deterministic regeneration
+        run: mix ash_expo.codegen --check --output tmp/generated
       - name: Type-check generated Expo runtime
         run: >-
           npx --yes -p typescript@5.9.3 tsc
@@ -42,3 +45,5 @@ jobs:
           --moduleResolution bundler
           --lib ES2022,DOM
           tmp/generated/*.ts
+      - name: Build Hex package without publishing
+        run: mix hex.build
