@@ -1,0 +1,121 @@
+name: GGen Manufacture Ash Extension
+
+on:
+  push:
+    branches: [feat/ggen-ash-extension-pack]
+    paths:
+      - "ontology/**"
+      - "ggen.toml"
+      - "ggen_templates/**"
+      - ".github/workflows/ggen-manufacture.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  construct:
+    permissions:
+      contents: read
+    uses: seanchatmangpt/ggen/.github/workflows/ggen-sync-run.yml@83a02070d021fbbd66426793d47bc1d68d0603c6
+    with:
+      ggen_release: v26.9.9
+      ggen_asset_sha256: ad4ab79923d17e32960383aaf5fab8e174bc8d0972872cdf1b3ecc5d11ed9e36
+      working_directory: .
+      dry_run: false
+
+  publish:
+    needs: construct
+    if: ${{ needs.construct.result == 'success' && needs.construct.outputs.sync_exit_code == '0' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ggen-sync-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ggen-construct-artifact
+
+      - name: Admit generated patch and outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          artifact=.ggen-construct-artifact
+
+          if [[ -s "$artifact/tracked.patch" ]]; then
+            git apply --index "$artifact/tracked.patch"
+          fi
+
+          if [[ -s "$artifact/untracked-output.tar.gz" ]]; then
+            if tar -tzf "$artifact/untracked-output.tar.gz" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+              echo "REFUSED_UNSAFE_ARCHIVE_PATH"
+              exit 1
+            fi
+            tar -xzf "$artifact/untracked-output.tar.gz" -C .
+          fi
+
+          if [[ -f "$artifact/ggen.lock" ]]; then
+            cp "$artifact/ggen.lock" ggen.lock
+          fi
+
+          rm -rf .ggen .ggen-v2 .ggen-construct-artifact
+
+          mapfile -t changed < <(git status --porcelain | sed -E 's/^...//' | sort -u)
+          for path in "${changed[@]}"; do
+            case "$path" in
+              ggen.lock|lib/ash_expo/resource.ex|lib/ash_expo/generated/persist.ex|lib/ash_expo/generated/verify.ex|lib/ash_expo/generated/info.ex|test/ash_expo_composition_test.exs)
+                ;;
+              "")
+                ;;
+              *)
+                echo "REFUSED_UNEXPECTED_GENERATED_PATH: $path"
+                exit 1
+                ;;
+            esac
+          done
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27.3"
+          elixir-version: "1.18.4"
+
+      - name: Verify generated Ash extension before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          mix deps.get
+          mix format --check-formatted
+          mix compile --warnings-as-errors
+          mix test
+
+      - name: Publish exact generated projection to source branch
+        shell: bash
+        env:
+          BRANCH: ${{ github.ref_name }}
+          EXPECTED_HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          git fetch origin "$BRANCH"
+          test "$(git rev-parse "origin/$BRANCH")" = "$EXPECTED_HEAD" || {
+            echo "REFUSED_BRANCH_MOVED"
+            exit 1
+          }
+
+          git add ggen.lock lib/ash_expo/resource.ex lib/ash_expo/generated test/ash_expo_composition_test.exs
+
+          if git diff --cached --quiet; then
+            echo "No generated projection change."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "generated: manufacture Ash extension from ggen pack"
+          git push origin "HEAD:$BRANCH"
