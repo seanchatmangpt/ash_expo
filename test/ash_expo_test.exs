@@ -58,6 +58,8 @@ end
 defmodule AshExpoTest do
   use ExUnit.Case, async: true
 
+  require Spark.Test
+
   alias AshExpoTest.{ChannelTodo, Todo}
 
   test "builds a deterministic admitted mobile manifest" do
@@ -87,6 +89,13 @@ defmodule AshExpoTest do
            ]
   end
 
+  test "Spark InfoGenerator exposes the same admitted Expo DSL" do
+    assert AshExpo.Info.expo_enabled?(Todo)
+    assert AshExpo.Info.enabled?(Todo)
+    assert Enum.map(AshExpo.Info.expo(Todo), & &1.name) == [:read, :create]
+    assert AshExpo.Info.actions(Todo) == AshExpo.Info.expo(Todo)
+  end
+
   test "channel projection is explicit in the manifest" do
     manifest = AshExpo.Manifest.build([ChannelTodo])
     [resource] = manifest["resources"]
@@ -96,39 +105,36 @@ defmodule AshExpoTest do
     assert action["realtime"] == true
   end
 
-  test "invalid realtime projection is refused by the Spark compile boundary" do
-    suffix = System.unique_integer([:positive])
+  test "invalid realtime projection is refused by the Spark verifier court" do
+    error =
+      Spark.Test.assert_dsl_error %Spark.Error.DslError{path: [:expo]} do
+        defmodule Elixir.AshExpoTest.InvalidRealtimeTodo do
+          use Ash.Resource,
+            domain: nil,
+            extensions: [AshTypescript.Resource, AshExpo.Resource]
 
-    source = """
-    defmodule AshExpoTest.InvalidRealtimeTodo#{suffix} do
-      use Ash.Resource,
-        domain: nil,
-        extensions: [AshTypescript.Resource, AshExpo.Resource]
+          typescript do
+            type_name "InvalidRealtimeTodo"
+          end
 
-      typescript do
-        type_name "InvalidRealtimeTodo#{suffix}"
-      end
+          attributes do
+            uuid_primary_key :id
+          end
 
-      attributes do
-        uuid_primary_key :id
-      end
+          actions do
+            read :read do
+              primary? true
+              public? true
+            end
+          end
 
-      actions do
-        read :read do
-          primary? true
-          public? true
+          expo do
+            action :read, realtime?: true
+          end
         end
       end
 
-      expo do
-        action :read, realtime?: true
-      end
-    end
-    """
-
-    assert_raise Spark.Error.DslError, ~r/must use transport: :channel/, fn ->
-      Code.compile_string(source)
-    end
+    assert error.message =~ "must use transport: :channel"
   end
 
   test "generated runtime binds construction to the admitted resource/action" do

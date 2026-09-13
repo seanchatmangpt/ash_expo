@@ -1,5 +1,5 @@
 defmodule AshExpo.Manifest do
-  @moduledoc "Builds the deterministic mobile capability manifest."
+  @moduledoc "Builds the deterministic mobile capability manifest from admitted Ash DSL state."
 
   alias AshExpo.Info
 
@@ -11,8 +11,6 @@ defmodule AshExpo.Manifest do
       |> Enum.filter(&Info.enabled?/1)
       |> Enum.uniq()
       |> Enum.sort_by(&inspect/1)
-
-    Enum.each(resources, &Info.validate_resource!/1)
 
     %{
       "schemaVersion" => AshExpo.schema_version(),
@@ -34,7 +32,7 @@ defmodule AshExpo.Manifest do
   defp resource_manifest(resource) do
     %{
       "module" => inspect(resource),
-      "typeName" => type_name(resource),
+      "typeName" => AshTypescript.Resource.Info.typescript_type_name!(resource),
       "actions" =>
         resource
         |> Info.actions()
@@ -54,17 +52,5 @@ defmodule AshExpo.Manifest do
       "realtime" => projection.realtime?,
       "secure" => projection.secure?
     }
-  end
-
-  defp type_name(resource) do
-    Spark.Dsl.Extension.get_opt(resource, [:typescript], :type_name, nil) ||
-      resource
-      |> Module.split()
-      |> List.last()
-  rescue
-    _ ->
-      resource
-      |> Module.split()
-      |> List.last()
   end
 end
