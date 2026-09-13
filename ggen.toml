@@ -1,0 +1,11 @@
+[project]
+name = "ash_expo"
+
+[ontology]
+source = "ontology.ttl"
+
+[packs]
+ash_extension_core = { git = "https://github.com/seanchatmangpt/ggen-marketplace.git", version = "08a9b368d40744f2f595b2e582d0fb89c618344a", subdir = "packs/ash-extension-core-pack" }
+
+[templates]
+dir = "templates"
