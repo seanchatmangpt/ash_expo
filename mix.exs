@@ -9,6 +9,7 @@ defmodule AshExpo.MixProject do
       app: :ash_expo,
       version: @version,
       elixir: "~> 1.15",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Expo runtime and code generation for Ash Framework applications",
@@ -22,6 +23,9 @@ defmodule AshExpo.MixProject do
   def application do
     [extra_applications: [:logger]]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   defp deps do
     [
