@@ -28,6 +28,11 @@ defmodule AshExpo.Manifest do
     }
   end
 
+  def build(other) do
+    raise ArgumentError,
+          "AshExpo.Manifest.build/1 expects a list of Ash resource modules; got #{inspect(other)}"
+  end
+
   @doc "Discovers Ash resources registered in an OTP application's domains."
   def resources_for_app(otp_app) when is_atom(otp_app) do
     otp_app

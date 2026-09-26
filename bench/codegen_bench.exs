@@ -26,6 +26,16 @@ ops = [
   {"generate", fn -> AshExpo.Codegen.generate(resources, "generated") end}
 ]
 
+# Fan-in: 2000 duplicate deliveries of the same resources. Measured over its
+# own (smaller) warm sample count because each call does 2000x the admission
+# work; the bound test asserts on the median of warm samples, as recorded here.
+fanin_resources = resources |> List.duplicate(2_000) |> List.flatten()
+fanin_iterations = max(div(iterations, 20), 15)
+
+fanin_op =
+  {"manifest_build_fanin_2000", fn -> AshExpo.Manifest.build(fanin_resources) end,
+   fanin_iterations}
+
 stats = fn samples ->
   sorted = Enum.sort(samples)
   n = length(sorted)
@@ -38,11 +48,12 @@ stats = fn samples ->
 end
 
 results =
-  Map.new(ops, fn {name, fun} ->
-    # warm-up
-    for _ <- 1..50, do: fun.()
-    samples = for _ <- 1..iterations, do: elem(:timer.tc(fun), 0)
-    {name, stats.(samples)}
+  (Enum.map(ops, fn {name, fun} -> {name, fun, iterations} end) ++ [fanin_op])
+  |> Map.new(fn {name, fun, n} ->
+    # warm-up: the first call pays one-off code loading, not steady-state cost
+    for _ <- 1..20, do: fun.()
+    samples = for _ <- 1..n, do: elem(:timer.tc(fun), 0)
+    {name, Map.put(stats.(samples), "samples", n)}
   end)
 
 digest =

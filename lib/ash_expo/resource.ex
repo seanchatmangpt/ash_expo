@@ -41,7 +41,7 @@ defmodule AshExpo.Resource do
     args: [:name],
     describe: "Projects one existing public Ash action to Expo",
     schema: [
-      name: [type: :atom, required: true],
+      name: [type: :atom, required: true, doc: "Existing public Ash action to project to Expo"],
       transport: [
         type: {:in, [:http, :channel]},
         default: :http,
@@ -50,7 +50,7 @@ defmodule AshExpo.Resource do
       offline: [
         type: {:in, [:online_only, :cacheable, :idempotent, :replayable]},
         default: :online_only,
-        doc: "Offline admission class. No class implies automatic local execution."
+        doc: "Offline admission class; no class grants automatic local execution"
       ],
       realtime?: [
         type: :boolean,
@@ -60,7 +60,7 @@ defmodule AshExpo.Resource do
       secure?: [
         type: :boolean,
         default: true,
-        doc: "Whether the client should attach its configured bearer credential"
+        doc: "Whether the client attaches its configured bearer credential"
       ]
     ]
   }
@@ -80,6 +80,7 @@ defmodule AshExpo.Resource do
 
   use Spark.Dsl.Extension,
     sections: [@expo],
+    transformers: [AshExpo.Resource.Transformers.TrackChannelConfig],
     verifiers: [AshExpo.Resource.Verifiers.ValidateProjection]
 
   @behaviour Ash.Extension

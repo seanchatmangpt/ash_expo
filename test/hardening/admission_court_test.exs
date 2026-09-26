@@ -227,6 +227,13 @@ defmodule AshExpoHardening.AdmissionCourtTest do
       end
     end
 
+    test "a non-list input is refused with a typed ArgumentError" do
+      for bad <- [Ordered, nil, %{}, {Ordered}] do
+        error = assert_raise ArgumentError, fn -> AshExpo.Manifest.build(bad) end
+        assert error.message =~ "expects a list of Ash resource modules; got #{inspect(bad)}"
+      end
+    end
+
     test "a refused element poisons the whole build (no partial manifest)" do
       assert_raise ArgumentError, fn ->
         AshExpo.Manifest.build([Ordered, String])
@@ -316,6 +323,25 @@ defmodule AshExpoHardening.AdmissionCourtTest do
 
       error = assert_raise RuntimeError, fn -> AshExpo.Codegen.check!(resources, dir) end
       assert error.message == "AshExpo generated files are stale: #{runtime}"
+
+      error = assert_raise RuntimeError, fn -> AshExpo.Codegen.write!(resources, dir) end
+
+      assert error.message ==
+               "AshExpo refuses to overwrite #{runtime}: expected a regular file, found directory"
+
+      assert File.dir?(runtime)
+    end
+
+    test "write! regenerates a missing file and leaves current files untouched",
+         %{dir: dir} do
+      resources = [Ordered]
+      AshExpo.Codegen.write!(resources, dir)
+      index = Path.join(dir, "ash_expo.ts")
+      File.rm!(index)
+
+      assert AshExpo.Codegen.write!(resources, dir) == [index]
+      assert AshExpo.Codegen.write!(resources, dir) == []
+      assert AshExpo.Codegen.check!(resources, dir) == :ok
     end
   end
 end
@@ -366,6 +392,97 @@ defmodule AshExpoHardening.ChannelConfigCourtTest do
       assert error.message =~ "generate_phx_channel_rpc_actions: true"
     after
       Application.put_env(:ash_typescript, :generate_phx_channel_rpc_actions, prior)
+    end
+  end
+end
+
+defmodule AshExpoHardening.CompileEnvTracer do
+  @moduledoc false
+  # Real compiler tracer: records every {:compile_env, ...} event the Elixir
+  # compiler emits, keyed by the module being compiled, into a public ETS table.
+  @table :ash_expo_compile_env_trace
+
+  def table, do: @table
+
+  def trace({:compile_env, app, path, value}, %Macro.Env{module: module}) do
+    if :ets.whereis(@table) != :undefined do
+      :ets.insert(@table, {module, app, path, value})
+    end
+
+    :ok
+  end
+
+  def trace(_event, _env), do: :ok
+end
+
+defmodule AshExpoHardening.ChannelCompileEnvCourtTest do
+  @moduledoc """
+  A resource with a channel projection must record
+  `:ash_typescript, :generate_phx_channel_rpc_actions` as compile env, so Mix
+  recompiles it when that config changes. Uses the real compiler with a real
+  tracer; mutates global compiler options, so it is synchronous and restores
+  them.
+  """
+  use ExUnit.Case, async: false
+
+  alias AshExpoHardening.CompileEnvTracer
+
+  @key [:generate_phx_channel_rpc_actions]
+
+  defp compile_resource(module, transport) do
+    source = """
+    defmodule #{inspect(module)} do
+      use Ash.Resource,
+        domain: nil,
+        extensions: [AshTypescript.Resource, AshExpo.Resource]
+
+      typescript do
+        type_name "#{module |> Module.split() |> List.last()}"
+      end
+
+      attributes do
+        uuid_primary_key :id
+      end
+
+      actions do
+        read :read do
+          primary? true
+          public? true
+        end
+      end
+
+      expo do
+        action :read, transport: #{inspect(transport)}
+      end
+    end
+    """
+
+    Code.compile_string(source, "compile_env_court_#{transport}.exs")
+  end
+
+  test "channel projections trace the ash_typescript channel key; http ones do not" do
+    table = :ets.new(CompileEnvTracer.table(), [:named_table, :public, :bag])
+    prior_tracers = Code.get_compiler_option(:tracers)
+    Code.put_compiler_option(:tracers, [CompileEnvTracer | prior_tracers])
+
+    try do
+      compile_resource(AshExpoHardening.CompileEnvChannel, :channel)
+      compile_resource(AshExpoHardening.CompileEnvHttp, :http)
+
+      assert :ets.lookup(table, AshExpoHardening.CompileEnvChannel) ==
+               [{AshExpoHardening.CompileEnvChannel, :ash_typescript, @key, {:ok, true}}]
+
+      assert :ets.lookup(table, AshExpoHardening.CompileEnvHttp) == []
+      assert AshExpoHardening.CompileEnvChannel.__ash_expo_channel_rpc_actions__() == true
+
+      refute function_exported?(
+               AshExpoHardening.CompileEnvHttp,
+               :__ash_expo_channel_rpc_actions__,
+               0
+             )
+    after
+      Code.put_compiler_option(:tracers, prior_tracers)
+      :ets.delete(table)
     end
   end
 end
