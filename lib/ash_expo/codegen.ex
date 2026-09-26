@@ -26,9 +26,7 @@ defmodule AshExpo.Codegen do
     resources
     |> generate(output_dir)
     |> Enum.reduce([], fn {path, content}, changed ->
-      current = if File.exists?(path), do: File.read!(path), else: nil
-
-      if current == content do
+      if File.read(path) == {:ok, content} do
         changed
       else
         File.mkdir_p!(Path.dirname(path))
@@ -45,7 +43,7 @@ defmodule AshExpo.Codegen do
       resources
       |> generate(output_dir)
       |> Enum.flat_map(fn {path, content} ->
-        if File.exists?(path) and File.read!(path) == content, do: [], else: [path]
+        if File.read(path) == {:ok, content}, do: [], else: [path]
       end)
 
     if stale != [] do
