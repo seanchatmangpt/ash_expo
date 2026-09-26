@@ -45,5 +45,24 @@ jobs:
           --moduleResolution bundler
           --lib ES2022,DOM
           tmp/generated/*.ts
+      - name: Generate real AshTypescript and AshExpo integration
+        run: |
+          MIX_ENV=test mix ash_typescript.codegen --output tmp/integration
+          MIX_ENV=test mix ash_expo.codegen --output tmp/integration
+      - name: Verify real integration regeneration
+        run: |
+          MIX_ENV=test mix ash_typescript.codegen --check --output tmp/integration
+          MIX_ENV=test mix ash_expo.codegen --check --output tmp/integration
+      - name: Type-check real generated composition
+        run: >-
+          npx --yes -p typescript@5.9.3 tsc
+          --noEmit
+          --strict
+          --target ES2022
+          --module ESNext
+          --moduleResolution bundler
+          --lib ES2022,DOM
+          tmp/integration/*.ts
+          test/integration/consumer.ts
       - name: Build Hex package without publishing
         run: mix hex.build

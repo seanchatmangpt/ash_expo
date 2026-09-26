@@ -1,10 +1,20 @@
 defmodule AshExpo.Manifest do
-  @moduledoc "Builds the deterministic mobile capability manifest."
+  @moduledoc "Builds the deterministic mobile capability manifest from admitted Ash DSL state."
 
   alias AshExpo.Info
 
-  @doc "Builds a deterministic manifest from explicit Ash resource modules."
+  @doc """
+  Builds a deterministic manifest from explicit Ash resource modules.
+
+  Every element must be an Ash resource module. Anything else (a domain, a
+  plain module, an atom that names no module) is refused with an
+  `ArgumentError` naming the offending input, rather than being silently
+  dropped or failing deep inside Spark introspection. Resources without the
+  `AshExpo.Resource` extension, or with `enabled? false`, are excluded.
+  """
   def build(resources) when is_list(resources) do
+    Enum.each(resources, &admit_resource!/1)
+
     resources =
       resources
       |> Enum.filter(&Info.ash_expo_resource?/1)
@@ -12,12 +22,15 @@ defmodule AshExpo.Manifest do
       |> Enum.uniq()
       |> Enum.sort_by(&inspect/1)
 
-    Enum.each(resources, &Info.validate_resource!/1)
-
     %{
       "schemaVersion" => AshExpo.schema_version(),
       "resources" => Enum.map(resources, &resource_manifest/1)
     }
+  end
+
+  def build(other) do
+    raise ArgumentError,
+          "AshExpo.Manifest.build/1 expects a list of Ash resource modules; got #{inspect(other)}"
   end
 
   @doc "Discovers Ash resources registered in an OTP application's domains."
@@ -31,10 +44,17 @@ defmodule AshExpo.Manifest do
     |> Enum.sort_by(&inspect/1)
   end
 
+  defp admit_resource!(resource) do
+    unless is_atom(resource) and Ash.Resource.Info.resource?(resource) do
+      raise ArgumentError,
+            "AshExpo.Manifest.build/1 expects Ash resource modules; got #{inspect(resource)}"
+    end
+  end
+
   defp resource_manifest(resource) do
     %{
       "module" => inspect(resource),
-      "typeName" => type_name(resource),
+      "typeName" => AshTypescript.Resource.Info.typescript_type_name!(resource),
       "actions" =>
         resource
         |> Info.actions()
@@ -54,17 +74,5 @@ defmodule AshExpo.Manifest do
       "realtime" => projection.realtime?,
       "secure" => projection.secure?
     }
-  end
-
-  defp type_name(resource) do
-    Spark.Dsl.Extension.get_opt(resource, [:typescript], :type_name, nil) ||
-      resource
-      |> Module.split()
-      |> List.last()
-  rescue
-    _ ->
-      resource
-      |> Module.split()
-      |> List.last()
   end
 end

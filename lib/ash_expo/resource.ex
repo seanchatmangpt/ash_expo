@@ -19,7 +19,8 @@ defmodule AshExpo.Resource do
       end
 
   The DSL does not expose actions by itself. Each named action must already
-  exist on the resource and be `public? true`.
+  exist on the resource and be `public? true`. Projection legality is enforced
+  by the Spark verifier boundary before code generation observes the resource.
   """
 
   defmodule Action do
@@ -40,7 +41,7 @@ defmodule AshExpo.Resource do
     args: [:name],
     describe: "Projects one existing public Ash action to Expo",
     schema: [
-      name: [type: :atom, required: true],
+      name: [type: :atom, required: true, doc: "Existing public Ash action to project to Expo"],
       transport: [
         type: {:in, [:http, :channel]},
         default: :http,
@@ -49,7 +50,7 @@ defmodule AshExpo.Resource do
       offline: [
         type: {:in, [:online_only, :cacheable, :idempotent, :replayable]},
         default: :online_only,
-        doc: "Offline admission class. No class implies automatic local execution."
+        doc: "Offline admission class; no class grants automatic local execution"
       ],
       realtime?: [
         type: :boolean,
@@ -59,7 +60,7 @@ defmodule AshExpo.Resource do
       secure?: [
         type: :boolean,
         default: true,
-        doc: "Whether the client should attach its configured bearer credential"
+        doc: "Whether the client attaches its configured bearer credential"
       ]
     ]
   }
@@ -77,12 +78,17 @@ defmodule AshExpo.Resource do
     entities: [@action]
   }
 
-  use Spark.Dsl.Extension, sections: [@expo]
+  use Spark.Dsl.Extension,
+    sections: [@expo],
+    transformers: [AshExpo.Resource.Transformers.TrackChannelConfig],
+    verifiers: [AshExpo.Resource.Verifiers.ValidateProjection]
+
+  @behaviour Ash.Extension
 
   @doc false
   def name, do: "ash_expo"
 
-  @doc false
+  @impl Ash.Extension
   def codegen(argv) do
     Mix.Task.reenable("ash_expo.codegen")
     Mix.Task.run("ash_expo.codegen", argv)
