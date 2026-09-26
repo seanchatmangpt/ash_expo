@@ -19,7 +19,8 @@ defmodule AshExpo.Resource do
       end
 
   The DSL does not expose actions by itself. Each named action must already
-  exist on the resource and be `public? true`.
+  exist on the resource and be `public? true`. Projection legality is enforced
+  by the Spark verifier boundary before code generation observes the resource.
   """
 
   defmodule Action do
@@ -77,12 +78,16 @@ defmodule AshExpo.Resource do
     entities: [@action]
   }
 
-  use Spark.Dsl.Extension, sections: [@expo]
+  use Spark.Dsl.Extension,
+    sections: [@expo],
+    verifiers: [AshExpo.Resource.Verifiers.ValidateProjection]
+
+  @behaviour Ash.Extension
 
   @doc false
   def name, do: "ash_expo"
 
-  @doc false
+  @impl Ash.Extension
   def codegen(argv) do
     Mix.Task.reenable("ash_expo.codegen")
     Mix.Task.run("ash_expo.codegen", argv)

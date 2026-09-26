@@ -1,0 +1,120 @@
+@prefix aex: <http://seanchatmangpt.github.io/packs/ash-extension-core#> .
+@prefix expo: <https://seanchatmangpt.github.io/ash_expo#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Temporary consumer-side declarations for the codegen callback vocabulary introduced
+# by ggen-marketplace PR #434. Operational admission is enforced by that pack's
+# 040_codegen_callback_contract.rq; once the declarations are folded into the pack's
+# monolithic ontology.ttl these two declarations become redundant, not semantic source.
+aex:codegenTask a rdf:Property ;
+  rdfs:domain aex:AshExtensionSpec ;
+  rdfs:comment "Exact Mix task executed by the optional Ash.Extension.codegen/1 projection." .
+
+aex:codegenName a rdf:Property ;
+  rdfs:domain aex:AshExtensionSpec ;
+  rdfs:comment "Optional display name for an extension that declares aex:codegenTask." .
+
+expo:ashExpoResource a aex:AshExtensionSpec ;
+  aex:packageName "ash_expo" ;
+  aex:moduleName "AshExpo.Resource" ;
+  aex:extensionTarget "resource" ;
+  aex:codegenTask "ash_expo.codegen" ;
+  aex:codegenName "ash_expo" .
+
+expo:expoSection a aex:DslSection ;
+  aex:sectionOf expo:ashExpoResource ;
+  aex:sectionName "expo" ;
+  aex:sectionOrder 1 ;
+  aex:sectionDescribe "Expo projection settings for this Ash resource" .
+
+expo:enabledField a aex:SectionSchemaField ;
+  aex:sectionFieldOf expo:expoSection ;
+  aex:sectionFieldOrder 1 ;
+  aex:sectionFieldName "enabled?" ;
+  aex:sectionFieldType "boolean" .
+
+expo:actionEntity a aex:DslEntity ;
+  aex:entityOf expo:expoSection ;
+  aex:entityName "action" ;
+  aex:entityOrder 1 ;
+  aex:entityStruct "Action" .
+
+expo:actionNameArg a aex:EntityArg ;
+  aex:argOf expo:actionEntity ;
+  aex:argOrder 1 ;
+  aex:argName "name" .
+
+expo:actionNameField a aex:EntitySchemaField ;
+  aex:fieldOf expo:actionEntity ;
+  aex:fieldOrder 1 ;
+  aex:fieldName "name" ;
+  aex:fieldType "atom" ;
+  aex:fieldRequired true ;
+  aex:fieldDoc "Existing public Ash action to project to Expo" .
+
+expo:transportField a aex:EntitySchemaField ;
+  aex:fieldOf expo:actionEntity ;
+  aex:fieldOrder 2 ;
+  aex:fieldName "transport" ;
+  aex:fieldType "one_of" ;
+  aex:fieldRequired false ;
+  aex:fieldDefault ":http" ;
+  aex:fieldDoc "Transport used by the generated mobile contract" .
+
+expo:transportHttp a aex:FieldOneOfValue ;
+  aex:oneOfValueOf expo:transportField ;
+  aex:oneOfValueOrder 1 ;
+  aex:oneOfValueName "http" .
+
+expo:transportChannel a aex:FieldOneOfValue ;
+  aex:oneOfValueOf expo:transportField ;
+  aex:oneOfValueOrder 2 ;
+  aex:oneOfValueName "channel" .
+
+expo:offlineField a aex:EntitySchemaField ;
+  aex:fieldOf expo:actionEntity ;
+  aex:fieldOrder 3 ;
+  aex:fieldName "offline" ;
+  aex:fieldType "one_of" ;
+  aex:fieldRequired false ;
+  aex:fieldDefault ":online_only" ;
+  aex:fieldDoc "Offline admission class; no class grants automatic local execution" .
+
+expo:offlineOnlineOnly a aex:FieldOneOfValue ;
+  aex:oneOfValueOf expo:offlineField ;
+  aex:oneOfValueOrder 1 ;
+  aex:oneOfValueName "online_only" .
+
+expo:offlineCacheable a aex:FieldOneOfValue ;
+  aex:oneOfValueOf expo:offlineField ;
+  aex:oneOfValueOrder 2 ;
+  aex:oneOfValueName "cacheable" .
+
+expo:offlineIdempotent a aex:FieldOneOfValue ;
+  aex:oneOfValueOf expo:offlineField ;
+  aex:oneOfValueOrder 3 ;
+  aex:oneOfValueName "idempotent" .
+
+expo:offlineReplayable a aex:FieldOneOfValue ;
+  aex:oneOfValueOf expo:offlineField ;
+  aex:oneOfValueOrder 4 ;
+  aex:oneOfValueName "replayable" .
+
+expo:realtimeField a aex:EntitySchemaField ;
+  aex:fieldOf expo:actionEntity ;
+  aex:fieldOrder 4 ;
+  aex:fieldName "realtime?" ;
+  aex:fieldType "boolean" ;
+  aex:fieldRequired false ;
+  aex:fieldDefault "false" ;
+  aex:fieldDoc "Marks the action as a realtime capability" .
+
+expo:secureField a aex:EntitySchemaField ;
+  aex:fieldOf expo:actionEntity ;
+  aex:fieldOrder 5 ;
+  aex:fieldName "secure?" ;
+  aex:fieldType "boolean" ;
+  aex:fieldRequired false ;
+  aex:fieldDefault "true" ;
+  aex:fieldDoc "Whether the client attaches its configured bearer credential" .

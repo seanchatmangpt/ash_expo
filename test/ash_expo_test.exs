@@ -55,35 +55,12 @@ defmodule AshExpoTest.ChannelTodo do
   end
 end
 
-defmodule AshExpoTest.InvalidRealtimeTodo do
-  use Ash.Resource,
-    domain: nil,
-    extensions: [AshTypescript.Resource, AshExpo.Resource]
-
-  typescript do
-    type_name "InvalidRealtimeTodo"
-  end
-
-  attributes do
-    uuid_primary_key :id
-  end
-
-  actions do
-    read :read do
-      primary? true
-      public? true
-    end
-  end
-
-  expo do
-    action :read, realtime?: true
-  end
-end
-
 defmodule AshExpoTest do
   use ExUnit.Case, async: true
 
-  alias AshExpoTest.{ChannelTodo, InvalidRealtimeTodo, Todo}
+  require Spark.Test
+
+  alias AshExpoTest.{ChannelTodo, Todo}
 
   test "builds a deterministic admitted mobile manifest" do
     manifest = AshExpo.Manifest.build([Todo])
@@ -112,6 +89,13 @@ defmodule AshExpoTest do
            ]
   end
 
+  test "Spark InfoGenerator exposes the same admitted Expo DSL" do
+    assert AshExpo.Info.expo_enabled?(Todo)
+    assert AshExpo.Info.enabled?(Todo)
+    assert Enum.map(AshExpo.Info.expo(Todo), & &1.name) == [:read, :create]
+    assert AshExpo.Info.actions(Todo) == AshExpo.Info.expo(Todo)
+  end
+
   test "channel projection is explicit in the manifest" do
     manifest = AshExpo.Manifest.build([ChannelTodo])
     [resource] = manifest["resources"]
@@ -121,10 +105,36 @@ defmodule AshExpoTest do
     assert action["realtime"] == true
   end
 
-  test "realtime projection refuses HTTP transport" do
-    assert_raise ArgumentError, ~r/realtime action .* must use transport: :channel/, fn ->
-      AshExpo.Manifest.build([InvalidRealtimeTodo])
-    end
+  test "invalid realtime projection is refused by the Spark verifier court" do
+    error =
+      Spark.Test.assert_dsl_error %Spark.Error.DslError{path: [:expo]} do
+        defmodule Elixir.AshExpoTest.InvalidRealtimeTodo do
+          use Ash.Resource,
+            domain: nil,
+            extensions: [AshTypescript.Resource, AshExpo.Resource]
+
+          typescript do
+            type_name "InvalidRealtimeTodo"
+          end
+
+          attributes do
+            uuid_primary_key :id
+          end
+
+          actions do
+            read :read do
+              primary? true
+              public? true
+            end
+          end
+
+          expo do
+            action :read, realtime?: true
+          end
+        end
+      end
+
+    assert error.message =~ "must use transport: :channel"
   end
 
   test "generated runtime binds construction to the admitted resource/action" do
