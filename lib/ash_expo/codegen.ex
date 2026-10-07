@@ -26,11 +26,10 @@ defmodule AshExpo.Codegen do
     resources
     |> generate(output_dir)
     |> Enum.reduce([], fn {path, content}, changed ->
-      current = if File.exists?(path), do: File.read!(path), else: nil
-
-      if current == content do
+      if File.read(path) == {:ok, content} do
         changed
       else
+        refuse_non_file!(path)
         File.mkdir_p!(Path.dirname(path))
         File.write!(path, content)
         [path | changed]
@@ -39,13 +38,32 @@ defmodule AshExpo.Codegen do
     |> Enum.reverse()
   end
 
+  # A directory (or other non-regular file) standing where a generated file
+  # belongs is operator state, not a stale projection: refuse with a typed
+  # message instead of deleting it or crashing inside File.write!/2 (EISDIR).
+  defp refuse_non_file!(path) do
+    case File.stat(path) do
+      {:ok, %File.Stat{type: :regular}} ->
+        :ok
+
+      {:error, :enoent} ->
+        :ok
+
+      {:ok, %File.Stat{type: type}} ->
+        raise "AshExpo refuses to overwrite #{path}: expected a regular file, found #{type}"
+
+      {:error, reason} ->
+        raise "AshExpo cannot inspect #{path}: #{:file.format_error(reason)}"
+    end
+  end
+
   @doc "Raises when committed generated files are stale."
   def check!(resources, output_dir \\ "assets/js") do
     stale =
       resources
       |> generate(output_dir)
       |> Enum.flat_map(fn {path, content} ->
-        if File.exists?(path) and File.read!(path) == content, do: [], else: [path]
+        if File.read(path) == {:ok, content}, do: [], else: [path]
       end)
 
     if stale != [] do

@@ -1,0 +1,38 @@
+{
+  "authority": "NONE",
+  "command": "MIX_ENV=test mix run bench/codegen_bench.exs",
+  "elixir": "1.19.5",
+  "generate_output_sha256": "0d5631bf9bbf8fb59b0f617d9caa3efbd892d18e552763b9fc647b3165177e8f",
+  "host": "darwin (loaded, shared)",
+  "iterations": 2000,
+  "otp": "28",
+  "recorded": "2026-09-26",
+  "regression_bound": "test/hardening/codegen_bench_bound_test.exs (generate median < 5000us, manifest median < 1000us, 2000-dup build < 250000us)",
+  "resources": [
+    "AshExpo.Integration.Todo"
+  ],
+  "results": {
+    "generate": {
+      "max_us": 35068,
+      "median_us": 46,
+      "p95_us": 454
+    },
+    "manifest_build": {
+      "max_us": 483,
+      "median_us": 2,
+      "p95_us": 5
+    },
+    "render_runtime": {
+      "max_us": 3,
+      "median_us": 0,
+      "p95_us": 0
+    },
+    "resources_for_app": {
+      "max_us": 2152,
+      "median_us": 0,
+      "p95_us": 2
+    }
+  },
+  "schema": "ash_expo/codegen-bench/1",
+  "subject_parent": "59a80d5e9a18208d8b25c47e02de6e714e0b8e8c"
+}

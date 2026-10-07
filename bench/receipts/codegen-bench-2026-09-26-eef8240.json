@@ -1,0 +1,116 @@
+{
+  "authority": "NONE",
+  "command": "MIX_ENV=test mix run bench/codegen_bench.exs 2000",
+  "elixir": "1.19.5",
+  "generate_output_sha256": "0d5631bf9bbf8fb59b0f617d9caa3efbd892d18e552763b9fc647b3165177e8f",
+  "host": "darwin (loaded, shared; load average 270-295)",
+  "iterations": 2000,
+  "otp": "28",
+  "recorded": "2026-09-26",
+  "regression_bound": "test/hardening/codegen_bench_bound_test.exs asserts on warm medians only: generate median < 5000us, manifest median < 1000us, 2000-duplicate build median < 250000us and < 2000x the single-build median",
+  "resources": [
+    "AshExpo.Integration.Todo"
+  ],
+  "runs": [
+    {
+      "generate": {
+        "max_us": 5922,
+        "median_us": 50,
+        "p95_us": 60,
+        "samples": 2000
+      },
+      "manifest_build": {
+        "max_us": 34,
+        "median_us": 1,
+        "p95_us": 4,
+        "samples": 2000
+      },
+      "manifest_build_fanin_2000": {
+        "max_us": 1370,
+        "median_us": 246,
+        "p95_us": 679,
+        "samples": 100
+      },
+      "render_runtime": {
+        "max_us": 0,
+        "median_us": 0,
+        "p95_us": 0,
+        "samples": 2000
+      },
+      "resources_for_app": {
+        "max_us": 422,
+        "median_us": 0,
+        "p95_us": 1,
+        "samples": 2000
+      }
+    },
+    {
+      "generate": {
+        "max_us": 276,
+        "median_us": 48,
+        "p95_us": 57,
+        "samples": 2000
+      },
+      "manifest_build": {
+        "max_us": 49,
+        "median_us": 1,
+        "p95_us": 4,
+        "samples": 2000
+      },
+      "manifest_build_fanin_2000": {
+        "max_us": 1219,
+        "median_us": 279,
+        "p95_us": 383,
+        "samples": 100
+      },
+      "render_runtime": {
+        "max_us": 0,
+        "median_us": 0,
+        "p95_us": 0,
+        "samples": 2000
+      },
+      "resources_for_app": {
+        "max_us": 11,
+        "median_us": 0,
+        "p95_us": 1,
+        "samples": 2000
+      }
+    },
+    {
+      "generate": {
+        "max_us": 658,
+        "median_us": 45,
+        "p95_us": 56,
+        "samples": 2000
+      },
+      "manifest_build": {
+        "max_us": 185,
+        "median_us": 1,
+        "p95_us": 4,
+        "samples": 2000
+      },
+      "manifest_build_fanin_2000": {
+        "max_us": 469,
+        "median_us": 271,
+        "p95_us": 339,
+        "samples": 100
+      },
+      "render_runtime": {
+        "max_us": 0,
+        "median_us": 0,
+        "p95_us": 0,
+        "samples": 2000
+      },
+      "resources_for_app": {
+        "max_us": 121,
+        "median_us": 0,
+        "p95_us": 1,
+        "samples": 2000
+      }
+    }
+  ],
+  "schema": "ash_expo/codegen-bench/1",
+  "subject_note": "measured on the working tree of the commit that adds this file (parent above); a commit cannot contain its own hash, so identity is the parent plus the lib/ and bench/codegen_bench.exs blobs of that commit",
+  "subject_parent": "eef82404b936016fe4ba7f719870a1afa6f6ca2f",
+  "supersedes": "codegen-bench-2026-09-26.json (subject_parent 59a80d5, single-call fan-in bound, no fan-in measurement)"
+}
